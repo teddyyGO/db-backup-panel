@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>DB Backuper</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2330; --border: #2a3240;
+    --text: #e6edf3; --muted: #8b949e; --accent: #2f81f7; --accent2: #388bfd;
+    --ok: #3fb950; --err: #f85149; --warn: #d29922;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0; display: flex; align-items: center; gap: 8px; }
+  h1 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  h1 .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 14px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
+  input[type=text], input[type=password], input[type=number], input[type=date] {
+    width: 100%; background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 7px; padding: 10px 12px; font-size: 14px; font-family: inherit;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 160px; }
+  button {
+    background: var(--accent); color: #fff; border: none; border-radius: 7px;
+    padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  button:hover { background: var(--accent2); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  button.ghost:hover { border-color: var(--accent); background: var(--panel2); }
+  button.danger { background: transparent; border: 1px solid var(--err); color: var(--err); }
+  button.danger:hover { background: rgba(248,81,73,.12); }
+  .btnrow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.ok { background: rgba(63,185,80,.15); color: var(--ok); }
+  .pill.off { background: rgba(139,148,158,.15); color: var(--muted); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 18px; font-weight: 600; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    padding: 11px 18px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 10; }
+  .toast.show { opacity: 1; }
+  .toast.ok { background: var(--ok); color: #04260c; }
+  .toast.err { background: var(--err); color: #2b0806; }
+  .hidden { display: none !important; }
+  .login { max-width: 360px; margin: 12vh auto 0; }
+  .center { text-align: center; }
+  .filters { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px; }
+  .filters > div { flex: 0 0 auto; }
+  a { color: var(--accent); }
+  .empty { color: var(--muted); text-align: center; padding: 28px 0; }
+  .contents { display: block; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .console {
+    background: #0a0e14; border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; height: 300px; overflow-y: auto;
+    font-family: "SFMono-Regular", ui-monospace, Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 12.5px; line-height: 1.7;
+  }
+  .logline { white-space: pre-wrap; word-break: break-word; display: flex; gap: 8px; }
+  .logline .t { color: #5a6675; flex: 0 0 auto; }
+  .logline .b { flex: 0 0 auto; font-weight: 600; }
+  .logline .m { flex: 1 1 auto; color: var(--text); }
+  .logline.error .b { color: var(--err); }
+  .logline.success .b { color: var(--ok); }
+  .logline.warn .b { color: var(--warn); }
+  .logline.warn .m { color: var(--warn); }
+  .logline.info .b { color: var(--accent); }
+  .console::-webkit-scrollbar { width: 10px; }
+  .console::-webkit-scrollbar-thumb { background: #2a3240; border-radius: 5px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginView" class="wrap hidden">
+  <div class="card login">
+    <h1 class="center" style="justify-content:center; margin-bottom:6px;">🔒 DB Backuper</h1>
+    <p class="muted small center">Enter the panel password to continue.</p>
+    <form id="loginForm">
+      <label for="pw">Password</label>
+      <input id="pw" type="password" autocomplete="current-password" required />
+      <div class="btnrow"><button type="submit" style="width:100%">Sign in</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- PANEL -->
+<div id="panelView" class="wrap hidden">
+  <div class="topbar">
+    <h1><span id="statusDot" class="dot"></span> DB Backuper</h1>
+    <button class="ghost small" id="logoutBtn">Sign out</button>
+  </div>
+
+  <div class="card">
+    <h2>Status</h2>
+    <div class="grid3">
+      <div class="stat"><div class="k">Auto-backup</div><div class="v" id="stAuto">—</div></div>
+      <div class="stat"><div class="k">Last backup</div><div class="v" id="stLast">—</div></div>
+      <div class="stat"><div class="k">Next data backup</div><div class="v" id="stNext">—</div></div>
+      <div class="stat"><div class="k">Next full backup</div><div class="v" id="stNextFull">—</div></div>
+      <div class="stat"><div class="k">Backups stored</div><div class="v" id="stCount">—</div></div>
+      <div class="stat"><div class="k">Disk used</div><div class="v" id="stSize">—</div></div>
+    </div>
+    <div class="btnrow">
+      <button id="runBtn">⤓ Full backup now</button>
+      <button class="ghost" id="runDataBtn">⤓ Data-only backup now</button>
+      <span id="runMsg" class="small muted" style="align-self:center"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Settings</h2>
+    <div>
+      <label for="conn">MySQL / MariaDB connection string
+        <span id="connState" class="pill off">not set</span>
+      </label>
+      <input id="conn" type="password" placeholder="mysql://user:password@host:3306/dbname"
+             autocomplete="off" spellcheck="false" />
+      <div class="small muted" style="margin-top:6px">
+        Write-only. Stored encrypted on the server; never shown back here. Leave blank to keep the current one.
+        Tip: use your Railway <em>internal</em> MySQL URL (host ends in <code>.railway.internal</code>).
+      </div>
+    </div>
+    <div>
+      <label for="logTables">Log tables — their <em>rows</em> are skipped by the frequent backup</label>
+      <input id="logTables" type="text" placeholder="app_logs, audit_log, sessions" spellcheck="false" autocomplete="off" />
+      <div class="small muted" style="margin-top:6px">
+        Comma or space separated. Their <strong>structure is still included</strong>, so a restore
+        recreates them (empty) and your app keeps working. Leave blank to make every backup full.
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div>
+        <label for="interval">Data backup every (minutes)</label>
+        <input id="interval" type="number" min="1" max="129600" step="1" value="30" />
+        <div class="small muted" style="margin-top:4px">Frequent, small — log rows skipped.</div>
+      </div>
+      <div>
+        <label for="fullInterval">Full backup every (minutes)</label>
+        <input id="fullInterval" type="number" min="1" max="129600" step="1" value="1440" />
+        <div class="small muted" style="margin-top:4px">Rare, complete — includes log rows.</div>
+      </div>
+    </div>
+    <div class="small muted" style="margin-top:6px">
+      Common values (minutes): <strong>60</strong> hourly · <strong>1440</strong> daily ·
+      <strong>10080</strong> weekly · <strong>43200</strong> ≈ monthly. Max 129600 (90 days).
+    </div>
+    <div class="btnrow">
+      <button id="saveBtn">Save settings</button>
+      <button class="danger" id="clearBtn">Remove stored connection</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Backups</h2>
+    <div class="filters">
+      <div>
+        <label for="from">From</label>
+        <input id="from" type="date" />
+      </div>
+      <div>
+        <label for="to">To</label>
+        <input id="to" type="date" />
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="ghost" id="weekBtn">Last 7 days</button>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="ghost" id="clearFilterBtn">Clear filter</button>
+      </div>
+    </div>
+
+    <div class="btnrow" style="margin-top:0; margin-bottom:12px">
+      <button class="ghost" id="selAllBtn">Select shown</button>
+      <button class="ghost" id="selNoneBtn">Clear selection</button>
+      <button id="dlBtn">⤓ Download selected (ZIP)</button>
+      <button class="danger" id="delBtn">Delete selected</button>
+      <span id="selInfo" class="small muted" style="align-self:center"></span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:28px"><input type="checkbox" id="headCheck" /></th>
+          <th>File</th>
+          <th>Created</th>
+          <th class="num">Size</th>
+          <th style="width:150px">Download</th>
+        </tr>
+      </thead>
+      <tbody id="backupRows"></tbody>
+    </table>
+    <div id="emptyState" class="empty hidden">No backups yet.</div>
+  </div>
+
+  <div class="card">
+    <h2 style="display:flex; justify-content:space-between; align-items:center">
+      <span>Activity console</span>
+      <span class="small" style="text-transform:none; letter-spacing:0">
+        <span id="consoleMeta" class="muted"></span>
+        <a id="downloadLog" href="/api/activity/download">download full log</a>
+      </span>
+    </h2>
+    <div class="console" id="console"><div class="empty">No activity yet.</div></div>
+    <div class="small muted" style="margin-top:8px">
+      Every backup, error, deletion, download, settings change and sign-in is recorded here
+      and stored on the volume — it survives restarts and is never auto-deleted.
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script nonce="__NONCE__">
+(function () {
+  'use strict';
+  let csrf = null;
+  let allBackups = [];
+  const $ = (id) => document.getElementById(id);
+
+  function toast(msg, kind) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + (kind || 'ok');
+    setTimeout(() => { t.className = 'toast'; }, 3000);
+  }
+
+  async function api(path, opts) {
+    opts = opts || {};
+    const headers = { 'Content-Type': 'application/json' };
+    if (csrf && opts.method && opts.method !== 'GET') headers['x-csrf-token'] = csrf;
+    const res = await fetch(path, {
+      method: opts.method || 'GET',
+      headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      credentials: 'same-origin',
+    });
+    if (res.status === 401) { showLogin(); throw new Error('unauth'); }
+    return res;
+  }
+
+  function fmtBytes(n) {
+    if (!n) return '0 B';
+    const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(n) / Math.log(1024));
+    return (n / Math.pow(1024, i)).toFixed(i ? 1 : 0) + ' ' + u[i];
+  }
+  function fmtDate(ms) {
+    if (!ms) return '—';
+    const d = new Date(ms);
+    return d.toLocaleString();
+  }
+  function fmtAgo(ms) {
+    if (!ms) return '—';
+    const s = Math.round((Date.now() - ms) / 1000);
+    if (Math.abs(s) < 60) return s <= 0 ? 'in <1m' : '<1m ago';
+    const m = Math.round(s / 60);
+    if (Math.abs(m) < 60) return m < 0 ? `in ${-m}m` : `${m}m ago`;
+    const h = Math.round(m / 60);
+    if (Math.abs(h) < 48) return h < 0 ? `in ${-h}h` : `${h}h ago`;
+    return fmtDate(ms);
+  }
+
+  // ---- views ----
+  function showLogin() {
+    $('loginView').classList.remove('hidden');
+    $('panelView').classList.add('hidden');
+    $('pw').focus();
+  }
+  function showPanel() {
+    $('loginView').classList.add('hidden');
+    $('panelView').classList.remove('hidden');
+    refreshAll();
+  }
+
+  // ---- status ----
+  async function loadStatus() {
+    const s = await (await api('/api/status')).json();
+    $('statusDot').className = 'dot' + (s.configured && s.intervalMinutes > 0 ? ' on' : '');
+    $('stAuto').textContent = s.configured && s.intervalMinutes > 0 ? 'On' : 'Off';
+    $('stLast').textContent = s.lastResult
+      ? (s.lastResult.ok ? fmtAgo(s.lastResult.at) : 'failed')
+      : (s.lastRun ? fmtAgo(s.lastRun) : '—');
+    $('stNext').textContent = s.nextRunAt ? fmtAgo(s.nextRunAt) : '—';
+    $('stNextFull').textContent = s.nextFullRunAt ? fmtAgo(s.nextFullRunAt)
+      : ((s.logTables || []).length ? '—' : 'every backup is full');
+    $('stCount').textContent = s.count;
+    $('stSize').textContent = fmtBytes(s.totalSize);
+    if (s.lastResult && !s.lastResult.ok) {
+      $('runMsg').textContent = 'Last error: ' + s.lastResult.error;
+      $('runMsg').style.color = 'var(--err)';
+    } else {
+      $('runMsg').textContent = '';
+    }
+  }
+
+  async function loadSettings() {
+    const s = await (await api('/api/settings')).json();
+    $('interval').value = s.intervalMinutes;
+    $('fullInterval').value = s.fullIntervalMinutes;
+    $('logTables').value = (s.logTables || []).join(', ');
+    const st = $('connState');
+    if (s.configured) { st.textContent = 'configured ✓'; st.className = 'pill ok'; }
+    else { st.textContent = 'not set'; st.className = 'pill off'; }
+  }
+
+  async function loadBackups() {
+    const s = await (await api('/api/backups')).json();
+    allBackups = s.backups || [];
+    renderBackups();
+  }
+
+  function fmtClock(ms) {
+    const d = new Date(ms);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  async function loadActivity() {
+    let data;
+    try { data = await (await api('/api/activity?limit=500')).json(); }
+    catch { return; }
+    const box = $('console');
+    const entries = (data.entries || []).slice().reverse(); // oldest -> newest
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    if (!entries.length) { box.innerHTML = '<div class="empty">No activity yet.</div>'; return; }
+    box.innerHTML = '';
+    for (const e of entries) {
+      const row = document.createElement('div');
+      row.className = 'logline ' + (e.level || 'info');
+      const t = document.createElement('span'); t.className = 't'; t.textContent = fmtClock(e.ts);
+      const b = document.createElement('span'); b.className = 'b'; b.textContent = (e.event || 'log').toUpperCase();
+      const m = document.createElement('span'); m.className = 'm'; m.textContent = e.message || '';
+      row.append(t, b, m);
+      box.appendChild(row);
+    }
+    $('consoleMeta').textContent = data.total + ' events · ';
+    if (nearBottom) box.scrollTop = box.scrollHeight; // keep pinned to newest
+  }
+
+  function refreshAll() { loadStatus(); loadSettings(); loadBackups(); loadActivity(); }
+
+  // ---- backups table ----
+  function filtered() {
+    const fromV = $('from').value ? new Date($('from').value + 'T00:00:00').getTime() : null;
+    const toV = $('to').value ? new Date($('to').value + 'T23:59:59.999').getTime() : null;
+    return allBackups.filter((b) => {
+      if (fromV && b.createdAt < fromV) return false;
+      if (toV && b.createdAt > toV) return false;
+      return true;
+    });
+  }
+
+  function renderBackups() {
+    const rows = $('backupRows');
+    const list = filtered();
+    rows.innerHTML = '';
+    $('emptyState').classList.toggle('hidden', list.length > 0);
+    for (const b of list) {
+      const tr = document.createElement('tr');
+
+      const tdCheck = document.createElement('td');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'rowcheck'; cb.value = b.name;
+      cb.addEventListener('change', updateSelInfo);
+      tdCheck.appendChild(cb);
+
+      const tdName = document.createElement('td');
+      tdName.style.wordBreak = 'break-all';
+      const nameText = document.createElement('span');
+      nameText.textContent = b.name;
+      tdName.appendChild(nameText);
+      const contents = document.createElement('span'); // filled in by Inspect
+      contents.className = 'contents small';
+      tdName.appendChild(contents);
+
+      const tdDate = document.createElement('td');
+      tdDate.textContent = fmtDate(b.createdAt);
+
+      const tdSize = document.createElement('td');
+      tdSize.className = 'num';
+      tdSize.textContent = fmtBytes(b.size);
+
+      const tdActions = document.createElement('td');
+      tdActions.style.whiteSpace = 'nowrap';
+      const inspect = document.createElement('a');
+      inspect.href = '#'; inspect.textContent = '🔍'; inspect.title = 'Inspect contents (count tables/views)';
+      inspect.style.cssText = 'font-size:15px; margin-right:10px; text-decoration:none';
+      inspect.addEventListener('click', (e) => { e.preventDefault(); inspectBackup(b.name, contents, inspect); });
+      const a = document.createElement('a');
+      a.href = '/api/backups/file/' + encodeURIComponent(b.name);
+      a.textContent = '⤓ .gz'; a.title = 'Download compressed .sql.gz'; a.className = 'small';
+      const rawa = document.createElement('a');
+      rawa.href = '/api/backups/raw/' + encodeURIComponent(b.name);
+      rawa.textContent = '⤓ .sql'; rawa.title = 'Download raw, uncompressed SQL'; rawa.className = 'small';
+      rawa.style.marginLeft = '10px';
+      tdActions.append(inspect, a, rawa);
+
+      tr.append(tdCheck, tdName, tdDate, tdSize, tdActions);
+      rows.appendChild(tr);
+    }
+    $('headCheck').checked = false;
+    updateSelInfo();
+  }
+
+  async function inspectBackup(name, target, trigger) {
+    target.textContent = ' inspecting…';
+    target.style.color = 'var(--muted)';
+    trigger.style.pointerEvents = 'none';
+    try {
+      const res = await api('/api/backups/inspect/' + encodeURIComponent(name));
+      const info = await res.json();
+      if (!res.ok) throw new Error(info.error || 'failed');
+      const parts = [`${info.tables} tables`];
+      if (info.views) parts.push(`${info.views} views`);
+      parts.push(fmtBytes(info.uncompressedBytes) + ' uncompressed');
+      target.textContent = '  → ' + parts.join(', ') + (info.complete ? ' ✓ complete' : ' ⚠ NO completion marker');
+      target.style.color = info.complete ? 'var(--ok)' : 'var(--warn)';
+    } catch (e) {
+      target.textContent = '  → inspect failed';
+      target.style.color = 'var(--err)';
+    }
+    trigger.style.pointerEvents = '';
+  }
+
+  function selectedNames() {
+    return Array.from(document.querySelectorAll('.rowcheck:checked')).map((c) => c.value);
+  }
+  function updateSelInfo() {
+    const sel = selectedNames();
+    const size = allBackups.filter((b) => sel.includes(b.name)).reduce((s, b) => s + b.size, 0);
+    $('selInfo').textContent = sel.length ? `${sel.length} selected · ${fmtBytes(size)}` : '';
+  }
+
+  // ---- event wiring ----
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: $('pw').value }),
+      credentials: 'same-origin',
+    });
+    if (res.ok) {
+      csrf = (await res.json()).csrf;
+      $('pw').value = '';
+      showPanel();
+    } else {
+      const e2 = await res.json().catch(() => ({}));
+      toast(e2.error || 'Login failed', 'err');
+    }
+  });
+
+  $('logoutBtn').addEventListener('click', async () => {
+    await api('/api/logout', { method: 'POST' });
+    csrf = null;
+    showLogin();
+  });
+
+  async function runNow(mode) {
+    const btn = mode === 'data' ? $('runDataBtn') : $('runBtn');
+    const label = btn.textContent;
+    $('runBtn').disabled = true; $('runDataBtn').disabled = true;
+    btn.textContent = 'Backing up…';
+    try {
+      const res = await api('/api/backup/run', { method: 'POST', body: { mode } });
+      const r = await res.json();
+      if (r.ok) toast(`${r.kind === 'data' ? 'Data' : 'Full'} backup created: ${r.name}`, 'ok');
+      else toast('Backup failed: ' + r.error, 'err');
+    } catch (e) { /* handled */ }
+    $('runBtn').disabled = false; $('runDataBtn').disabled = false;
+    btn.textContent = label;
+    loadStatus(); loadBackups(); loadActivity();
+  }
+  $('runBtn').addEventListener('click', () => runNow('full'));
+  $('runDataBtn').addEventListener('click', () => runNow('data'));
+
+  $('saveBtn').addEventListener('click', async () => {
+    const body = {
+      intervalMinutes: parseInt($('interval').value, 10),
+      fullIntervalMinutes: parseInt($('fullInterval').value, 10),
+      logTables: $('logTables').value,
+    };
+    if ($('conn').value.trim()) body.connectionString = $('conn').value.trim();
+    const res = await api('/api/settings', { method: 'POST', body });
+    const r = await res.json();
+    if (res.ok) { toast('Settings saved', 'ok'); $('conn').value = ''; loadSettings(); loadStatus(); loadActivity(); }
+    else toast(r.error || 'Save failed', 'err');
+  });
+
+  $('clearBtn').addEventListener('click', async () => {
+    if (!confirm('Remove the stored connection string? Auto-backups will stop until you set it again.')) return;
+    const res = await api('/api/settings', { method: 'POST', body: { clearConnection: true } });
+    if (res.ok) { toast('Connection removed', 'ok'); loadSettings(); loadStatus(); loadActivity(); }
+  });
+
+  $('headCheck').addEventListener('change', (e) => {
+    document.querySelectorAll('.rowcheck').forEach((c) => { c.checked = e.target.checked; });
+    updateSelInfo();
+  });
+  $('selAllBtn').addEventListener('click', () => {
+    document.querySelectorAll('.rowcheck').forEach((c) => { c.checked = true; });
+    $('headCheck').checked = true; updateSelInfo();
+  });
+  $('selNoneBtn').addEventListener('click', () => {
+    document.querySelectorAll('.rowcheck').forEach((c) => { c.checked = false; });
+    $('headCheck').checked = false; updateSelInfo();
+  });
+
+  $('weekBtn').addEventListener('click', () => {
+    const now = new Date();
+    const week = new Date(now.getTime() - 7 * 86400000);
+    const iso = (d) => d.toISOString().slice(0, 10);
+    $('from').value = iso(week);
+    $('to').value = iso(now);
+    renderBackups();
+  });
+  $('clearFilterBtn').addEventListener('click', () => {
+    $('from').value = ''; $('to').value = ''; renderBackups();
+  });
+  $('from').addEventListener('change', renderBackups);
+  $('to').addEventListener('change', renderBackups);
+
+  $('dlBtn').addEventListener('click', async () => {
+    const names = selectedNames();
+    if (!names.length) return toast('Select at least one backup', 'err');
+    // Post + blob so we can send the selection and the CSRF token together.
+    const res = await fetch('/api/backups/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ names }),
+      credentials: 'same-origin',
+    });
+    if (!res.ok) return toast('Download failed', 'err');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'backups_' + new Date().toISOString().slice(0, 10) + '.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    loadActivity();
+  });
+
+  $('delBtn').addEventListener('click', async () => {
+    const names = selectedNames();
+    if (!names.length) return toast('Select at least one backup', 'err');
+    if (!confirm(`Delete ${names.length} backup(s)? This frees space but cannot be undone.`)) return;
+    const res = await api('/api/backups/delete', { method: 'POST', body: { names } });
+    const r = await res.json();
+    if (res.ok) { toast(`Deleted ${r.deleted} backup(s)`, 'ok'); loadBackups(); loadStatus(); loadActivity(); }
+    else toast('Delete failed', 'err');
+  });
+
+  // periodic status + console refresh
+  setInterval(() => {
+    if ($('panelView').classList.contains('hidden')) return;
+    loadStatus(); loadActivity();
+  }, 10000);
+
+  // ---- init ----
+  (async function init() {
+    try {
+      const me = await (await fetch('/api/me', { credentials: 'same-origin' })).json();
+      if (me.authenticated) { csrf = me.csrf; showPanel(); }
+      else showLogin();
+    } catch { showLogin(); }
+  })();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "db-backuper",
+  "version": "1.0.0",
+  "description": "Small, secure MySQL/MariaDB auto-backup panel (mysqldump + web UI)",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test.js",
+    "gen-secret": "node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "express": "^4.21.2"
+  },
+  "license": "MIT"
+}
